@@ -16,7 +16,7 @@ augmentation = tf.keras.Sequential([
 def preprocess_image(filename, augment=False):
     image = tf.io.read_file(filename)
     image = tf.image.decode_png(image, channels=3)
-    image = tf.image.resize(image, [224, 224])  # Önceden resize yapılmamışsa
+    image = tf.image.resize(image, [224, 224])  # Önceden resize yapılmadı
     image = tf.cast(image, tf.float32) / 255.0
     if augment:
         image = augmentation(image)

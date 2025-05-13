@@ -59,7 +59,7 @@ def build_reference_embeddings(reference_dir="data/processed", samples_per_class
             reference[class_name] = embeddings
     return reference
 
-# ✅ Tahmin fonksiyonu
+# ✅ Tek sonuç döndüren karar fonksiyonu
 def predict_label(test_image_path, reference_embeddings, threshold=0.75):
     test_emb = get_embedding(test_image_path)
     best_class = None
@@ -77,9 +77,32 @@ def predict_label(test_image_path, reference_embeddings, threshold=0.75):
     else:
         return "unknown", best_score
 
+# 🔍 Gözlemsel analiz için top-k sıralı sınıflar
+def predict_top_k(test_image_path, reference_embeddings, top_k=3):
+    test_emb = get_embedding(test_image_path)
+    scores = []
+
+    for class_name, embs in reference_embeddings.items():
+        similarities = [cosine_similarity(test_emb, ref_emb) for ref_emb in embs]
+        avg_sim = np.mean(similarities)
+        scores.append((class_name, avg_sim))
+
+    # En yüksek benzerlik sırasına göre sırala
+    scores.sort(key=lambda x: x[1], reverse=True)
+    return scores[:top_k]
+
 # ✅ Örnek kullanım
 if __name__ == "__main__":
     reference_embeddings = build_reference_embeddings(samples_per_class=3)
     test_image = "test_samples/test_sample_resized.png"
+
+    # 🧠 Üretim amaçlı tek sınıf tahmini
     label, score = predict_label(test_image, reference_embeddings, threshold=0.75)
     print(f"📍 Tahmin: {label} (Benzerlik: {score:.2f})")
+
+    # 🔍 Gözlemsel analiz için en benzer 3 sınıf
+    top3 = predict_top_k(test_image, reference_embeddings, top_k=3)
+    print("\n🔎 Top-3 Benzer Sınıf:")
+    for name, sim in top3:
+        print(f"  - {name}: {sim:.2f}")
+
