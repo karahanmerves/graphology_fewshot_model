@@ -12,11 +12,11 @@ def l2_normalize(t):
 def euclidean_distance(tensors):
     return tf.reduce_sum(tf.square(tensors[0] - tensors[1]), axis=1, keepdims=True)
 
-# 🔹 Minimal Augmentasyon pipeline (yalnızca flip ve zoom)
 data_augmentation = tf.keras.Sequential([
     layers.RandomFlip("horizontal"),
+    layers.RandomRotation(0.1),
     layers.RandomZoom(0.1)
-], name="simple_augmentation")
+], name="light_augmentation")
 
 # 🔸 1. İşlenmiş veri yoksa cachele
 if not os.path.exists("data/processed"):
@@ -26,7 +26,7 @@ if not os.path.exists("data/processed"):
 image_paths, labels, label_to_index = load_image_paths("data/processed")
 
 # 🔸 3. Dataset oluştur (daha az çift)
-dataset = create_pair_dataset(image_paths, labels, pairs_per_class=20)
+dataset = create_pair_dataset(image_paths, labels, pairs_per_class=30)
 dataset = dataset.shuffle(1000)
 
 # 🔸 4. Eğitim / validation bölmesi
@@ -83,7 +83,7 @@ model.compile(
 model.fit(
     train_dataset,
     validation_data=val_dataset,
-    epochs=10,
+    epochs=15,
     callbacks=callbacks
 )
 
