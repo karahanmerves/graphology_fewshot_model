@@ -70,7 +70,7 @@ def contrastive_loss(y_true, y_pred, margin=1.0):
 
 # 🔸 8. Callback'ler (erken durdurma 2 epoch ile)
 callbacks = [
-    EarlyStopping(patience=2, monitor="val_loss", restore_best_weights=True),
+    EarlyStopping(patience=1, monitor="val_loss", restore_best_weights=True),
     ModelCheckpoint("models/best_siamese.keras", save_best_only=True, monitor="val_loss")
 ]
 
@@ -89,8 +89,6 @@ model.fit(
 
 # 🔸 10. Model kaydet (.keras ve .tflite)
 model.save("models/siamese_graphology_model.keras")
-print("✅ Model .keras formatında kaydedildi.")
-
 converter = tf.lite.TFLiteConverter.from_keras_model(model)
 tflite_model = converter.convert()
 with open("models/siamese_graphology_model.tflite", "wb") as f:

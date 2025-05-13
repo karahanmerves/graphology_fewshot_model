@@ -25,11 +25,13 @@ embedder = model.get_layer("embedding_model")
 
 # ✅ Görselden embedding çıkar
 def get_embedding(img_path, size=(224, 224)):
+    if not os.path.exists(img_path):
+        raise FileNotFoundError(f"Görsel bulunamadı: {img_path}")
     img = cv2.imread(img_path)
     img = cv2.resize(img, size)
     img = img / 255.0
     img = np.expand_dims(img, axis=0)
-    embedding = embedder.predict(img)
+    embedding = embedder.predict(img, verbose=0)
     return embedding[0]
 
 # ✅ Cosine similarity hesapla
@@ -41,14 +43,20 @@ def cosine_similarity(a, b):
 # ✅ Referans embedding'leri oluştur
 def build_reference_embeddings(reference_dir="data/processed", samples_per_class=3):
     reference = {}
+    if not os.path.exists(reference_dir):
+        raise FileNotFoundError(f"Referans klasörü bulunamadı: {reference_dir}")
+    
     for class_name in sorted(os.listdir(reference_dir)):
         class_path = os.path.join(reference_dir, class_name)
+        if not os.path.isdir(class_path):
+            continue
         embeddings = []
-        for fname in os.listdir(class_path)[:samples_per_class]:
+        for fname in sorted(os.listdir(class_path))[:samples_per_class]:
             path = os.path.join(class_path, fname)
             emb = get_embedding(path)
             embeddings.append(emb)
-        reference[class_name] = embeddings
+        if embeddings:
+            reference[class_name] = embeddings
     return reference
 
 # ✅ Tahmin fonksiyonu
@@ -71,7 +79,7 @@ def predict_label(test_image_path, reference_embeddings, threshold=0.75):
 
 # ✅ Örnek kullanım
 if __name__ == "__main__":
-    reference_embeddings = build_reference_embeddings()
+    reference_embeddings = build_reference_embeddings(samples_per_class=3)
     test_image = "test_samples/test_sample_resized.png"
-    label, score = predict_label(test_image, reference_embeddings)
-    print(f"📍 Tahmin: {label} ({score:.2f})")
+    label, score = predict_label(test_image, reference_embeddings, threshold=0.75)
+    print(f"📍 Tahmin: {label} (Benzerlik: {score:.2f})")
