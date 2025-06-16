@@ -18,7 +18,7 @@ def cache_resized_images(input_dir, output_dir, size=(224, 224)):
         os.makedirs(class_output_path, exist_ok=True)
 
         for fname in os.listdir(class_input_path):
-            if fname.endswith(".png"):
+            if fname.endswith((".png", ".jpg", ".jpeg", ".webp")):
                 in_path = os.path.join(class_input_path, fname)
                 out_path = os.path.join(class_output_path, fname)
 

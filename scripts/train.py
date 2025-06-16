@@ -4,6 +4,17 @@ from utils.image_utils import cache_resized_images
 from tensorflow.keras import layers, optimizers
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 import os
+import random
+import numpy as np
+import tensorflow as tf
+import os
+
+SEED = 42
+os.environ['PYTHONHASHSEED'] = str(SEED)
+random.seed(SEED)
+np.random.seed(SEED)
+tf.random.set_seed(SEED)
+
 
 # 🔹 Lambda fonksiyonları
 def l2_normalize(t):
@@ -18,9 +29,10 @@ data_augmentation = tf.keras.Sequential([
     layers.RandomZoom(0.1)
 ], name="light_augmentation")
 
-# 🔸 1. İşlenmiş veri yoksa cachele
-if not os.path.exists("data/processed"):
-    cache_resized_images("data/raw", "data/processed")
+#  Her seferinde güncel verileri yeniden işleyelim
+from utils.image_utils import cache_resized_images
+cache_resized_images("data/raw", "data/processed")
+
 
 # 🔸 2. Veri yollarını ve etiketleri al
 image_paths, labels, label_to_index = load_image_paths("data/processed")
@@ -68,10 +80,21 @@ def contrastive_loss(y_true, y_pred, margin=1.0):
         (1 - y_true) * tf.square(tf.maximum(margin - y_pred, 0))
     )
 
-# 🔸 8. Callback'ler (erken durdurma 2 epoch ile)
+# 🔸 8. Callback'ler (optimum epoch'ta modeli kaydet)
 callbacks = [
-    EarlyStopping(patience=1, monitor="val_loss", restore_best_weights=True),
-    ModelCheckpoint("models/best_siamese.keras", save_best_only=True, monitor="val_loss")
+    ModelCheckpoint(
+        filepath="models/best_siamese.keras",
+        monitor="val_loss",
+        save_best_only=True,
+        save_weights_only=False,
+        verbose=1
+    ),
+    EarlyStopping(
+        monitor="val_loss",
+        patience=1,
+        restore_best_weights=True,
+        verbose=1
+    )
 ]
 
 # 🔸 9. Model oluştur ve eğit

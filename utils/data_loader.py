@@ -32,7 +32,7 @@ def load_image_paths(data_dir):
     for class_name in class_names:
         class_path = os.path.join(data_dir, class_name)
         for fname in os.listdir(class_path):
-            if fname.endswith(".png"):
+            if fname.endswith((".png", ".jpg", ".jpeg", ".webp")):
                 image_paths.append(os.path.join(class_path, fname))
                 labels.append(label_to_index[class_name])
     
