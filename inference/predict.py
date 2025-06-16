@@ -2,6 +2,8 @@ import os
 import numpy as np
 import tensorflow as tf
 import cv2
+import matplotlib.pyplot as plt
+from PIL import Image
 
 # ✅ Lambda katmanları için tanımlar
 def l2_normalize(t, **kwargs):
@@ -59,6 +61,13 @@ def build_reference_embeddings(reference_dir="data/processed", samples_per_class
             reference[class_name] = embeddings
     return reference
 
+print("\n🧪 ARGUMENTATIVE sınıfı örnek embedding analizi:")
+argu_dir = "data/processed/argumentative"
+for fname in sorted(os.listdir(argu_dir))[:3]:
+    fpath = os.path.join(argu_dir, fname)
+    emb = get_embedding(fpath)
+    print(f"→ {fname} | mean: {np.mean(emb):.6f}, norm: {np.linalg.norm(emb):.6f}")
+
 # ✅ Tek sonuç döndüren karar fonksiyonu
 def predict_label(test_image_path, reference_embeddings, threshold=0.75):
     test_emb = get_embedding(test_image_path)
@@ -91,18 +100,32 @@ def predict_top_k(test_image_path, reference_embeddings, top_k=3):
     scores.sort(key=lambda x: x[1], reverse=True)
     return scores[:top_k]
 
+# 🔹 Test görselini çiz
+def show_test_image(img_path):
+    img = Image.open(img_path).convert("RGB").resize((224, 224))
+    plt.imshow(img)
+    plt.axis("off")
+    plt.title("Test Image")
+    plt.show()
+
+
 # ✅ Örnek kullanım
 if __name__ == "__main__":
-    reference_embeddings = build_reference_embeddings(samples_per_class=3)
-    test_image = "test_samples/test_sample_resized.png"
+    reference_embeddings = build_reference_embeddings(samples_per_class=5)
+    test_image = "test_samples/test_sample_4.png"
+
 
     # 🧠 Üretim amaçlı tek sınıf tahmini
-    label, score = predict_label(test_image, reference_embeddings, threshold=0.75)
+    label, score = predict_label(test_image, reference_embeddings, threshold=0.85)
     print(f"📍 Tahmin: {label} (Benzerlik: {score:.2f})")
 
     # 🔍 Gözlemsel analiz için en benzer 3 sınıf
-    top3 = predict_top_k(test_image, reference_embeddings, top_k=3)
-    print("\n🔎 Top-3 Benzer Sınıf:")
+    top3 = predict_top_k(test_image, reference_embeddings, top_k=10)
+    print("\n🔎 Top-10 Benzer Sınıf:")
     for name, sim in top3:
         print(f"  - {name}: {sim:.2f}")
+
+    print("\n🖼 Test görseli:")
+    show_test_image(test_image)
+
 
