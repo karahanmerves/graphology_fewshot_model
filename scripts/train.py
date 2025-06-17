@@ -1,68 +1,29 @@
+
 import tensorflow as tf
-from utils.data_loader import load_image_paths, create_pair_dataset
-from utils.image_utils import cache_resized_images
-from tensorflow.keras import layers, optimizers
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-import os
-import random
-import numpy as np
-import tensorflow as tf
-import os
+from tensorflow.keras import layers
 
-SEED = 42
-os.environ['PYTHONHASHSEED'] = str(SEED)
-random.seed(SEED)
-np.random.seed(SEED)
-tf.random.set_seed(SEED)
+# ✅ Lambda katmanları
+def l2_normalize(x):
+    return tf.math.l2_normalize(x, axis=1)
 
+def euclidean_distance(vectors):
+    x, y = vectors
+    return tf.reduce_sum(tf.square(x - y), axis=1, keepdims=True)
 
-# 🔹 Lambda fonksiyonları
-def l2_normalize(t):
-    return tf.math.l2_normalize(t, axis=1)
-
-def euclidean_distance(tensors):
-    return tf.reduce_sum(tf.square(tensors[0] - tensors[1]), axis=1, keepdims=True)
-
-data_augmentation = tf.keras.Sequential([
-    layers.RandomFlip("horizontal"),
-    layers.RandomRotation(0.1),
-    layers.RandomZoom(0.1)
-], name="light_augmentation")
-
-#  Her seferinde güncel verileri yeniden işleyelim
-from utils.image_utils import cache_resized_images
-cache_resized_images("data/raw", "data/processed")
-
-
-# 🔸 2. Veri yollarını ve etiketleri al
-image_paths, labels, label_to_index = load_image_paths("data/processed")
-
-# 🔸 3. Dataset oluştur (daha az çift)
-dataset = create_pair_dataset(image_paths, labels, pairs_per_class=30)
-dataset = dataset.shuffle(1000)
-
-# 🔸 4. Eğitim / validation bölmesi
-total = tf.data.experimental.cardinality(dataset).numpy()
-val_size = int(0.2 * total)
-train_dataset = dataset.skip(val_size).batch(32)
-val_dataset = dataset.take(val_size).batch(32)
-
-# 🔸 5. Embedding modeli (MobilNetV2 tamamen freeze)
+# ✅ Embedding Model (EfficientNet tabanlı)
 def build_embedding_model(input_shape=(224, 224, 3)):
-    base = tf.keras.applications.MobileNetV2(
+    base = tf.keras.applications.EfficientNetB0(
         input_shape=input_shape, include_top=False, weights="imagenet", pooling="avg"
     )
-    base.trainable = False  # Tamamen dondur
-
+    base.trainable = False
     inputs = tf.keras.Input(shape=input_shape)
-    x = data_augmentation(inputs)
-    x = tf.keras.applications.mobilenet_v2.preprocess_input(x)
+    x = tf.keras.applications.efficientnet.preprocess_input(inputs)
     x = base(x)
     x = layers.Dense(256, activation="relu")(x)
     x = layers.Lambda(l2_normalize, name="l2_normalize")(x)
     return tf.keras.Model(inputs, x, name="embedding_model")
 
-# 🔸 6. Siamese model
+# ✅ Siamese (Protonet tarzı) Model
 def build_siamese_model(input_shape=(224, 224, 3)):
     embedder = build_embedding_model(input_shape)
     input_a = tf.keras.Input(shape=input_shape)
@@ -72,49 +33,4 @@ def build_siamese_model(input_shape=(224, 224, 3)):
     distance = layers.Lambda(euclidean_distance, name="euclidean_distance")([vec_a, vec_b])
     return tf.keras.Model(inputs=[input_a, input_b], outputs=distance)
 
-# 🔸 7. Contrastive loss
-def contrastive_loss(y_true, y_pred, margin=1.0):
-    y_true = tf.cast(y_true, y_pred.dtype)
-    return tf.reduce_mean(
-        y_true * tf.square(y_pred) +
-        (1 - y_true) * tf.square(tf.maximum(margin - y_pred, 0))
-    )
-
-# 🔸 8. Callback'ler (optimum epoch'ta modeli kaydet)
-callbacks = [
-    ModelCheckpoint(
-        filepath="models/best_siamese.keras",
-        monitor="val_loss",
-        save_best_only=True,
-        save_weights_only=False,
-        verbose=1
-    ),
-    EarlyStopping(
-        monitor="val_loss",
-        patience=1,
-        restore_best_weights=True,
-        verbose=1
-    )
-]
-
-# 🔸 9. Model oluştur ve eğit
-model = build_siamese_model()
-model.compile(
-    optimizer=optimizers.Adam(1e-4),
-    loss=contrastive_loss
-)
-model.fit(
-    train_dataset,
-    validation_data=val_dataset,
-    epochs=15,
-    callbacks=callbacks
-)
-
-# 🔸 10. Model kaydet (.keras ve .tflite)
-model.save("models/siamese_graphology_model.keras")
-converter = tf.lite.TFLiteConverter.from_keras_model(model)
-tflite_model = converter.convert()
-with open("models/siamese_graphology_model.tflite", "wb") as f:
-    f.write(tflite_model)
-print("📦 Model .tflite formatında da kaydedildi.")
-
+# Bu sadece model tanımıdır. Eğitim, optimizer, loss ve callback'leri aşağıda ayrıca bağlaman gerekir.
